@@ -213,6 +213,8 @@ class Hero extends Component {
                       }
                       href={'#'}
                       onClick={this.showPopup.bind(this)}
+                      native
+                      rel="nofollow"
                     >
                       <i class={icon} /> Download
                       {showDetail && text.arch ? ' (' + text.arch + ')' : ''}
@@ -230,9 +232,10 @@ class Hero extends Component {
                       {buttons.map(({ link, icon, text }) => (
                         <a
                           class="dropdown-item"
-                          native
                           href={'#'}
                           onClick={this.showPopup.bind(this)}
+                          native
+                          rel="nofollow"
                         >
                           <i class={icon} /> Download for {text.os}{' '}
                           {text.arch ? ' (' + text.arch + ')' : ''}
