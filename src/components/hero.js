@@ -1,5 +1,4 @@
-/* eslint-disable jsx-a11y/anchor-is-valid */
-import { h, Component, Fragment } from 'preact'
+import { h, Component } from 'preact'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 import { getChristmasImage } from '../season'
@@ -11,38 +10,6 @@ import {
 import { numberWithCommas } from '../util'
 import links from '../_data/links'
 import Commit from './commit'
-import Popup from './popup'
-
-const PopupMsg = () => {
-  return (
-    <Fragment>
-      <p>
-        This is a fake copy of the RuneLite website designed to look like the
-        real one. We could have served you an infected RuneLiteSetup.exe
-        instead, causing you to install a malicious client which hacks you.
-      </p>
-
-      <p>
-        You can not tell if two web sites are the same by visually inspecting
-        them.
-      </p>
-
-      <p>
-        Sometimes, criminals buy ads on Google to get the top search result,
-        typically with a website identical to{' '}
-        <a href="https://runelite.net">runelite.net</a> whose name is a close
-        misspelling of runelite.net. You may have clicked this and not realized.
-      </p>
-
-      <p>
-        We recommend using{' '}
-        <a href="https://runelite.net/verify">https://runelite.net/verify</a> to
-        verify the authenticity of your RuneLiteSetup file, and check your
-        browser history to see where you downloaded it from.
-      </p>
-    </Fragment>
-  )
-}
 
 function isOsCorrect(osName) {
   const platform = navigator.platform.toLowerCase()
@@ -52,7 +19,14 @@ function isOsCorrect(osName) {
   }
 
   if (platform.indexOf('win') !== -1) {
-    return osName === 'Windows32'
+    if (
+      navigator.userAgent.indexOf('Win64') !== -1 ||
+      navigator.userAgent.indexOf('WOW64') !== -1
+    ) {
+      return osName === 'Windows64'
+    } else {
+      return osName === 'Windows32'
+    }
   }
 
   if (platform.indexOf('linux') !== -1) {
@@ -87,8 +61,7 @@ class Hero extends Component {
     this.handleScroll = this.handleScroll.bind(this)
 
     this.state = {
-      interval: 0,
-      showMsg: false
+      interval: 0
     }
   }
 
@@ -108,10 +81,6 @@ class Hero extends Component {
         this.props.makeNavbarDark()
       }
     }
-  }
-
-  showPopup() {
-    this.setState({ showMsg: true })
   }
 
   componentDidMount() {
@@ -183,11 +152,6 @@ class Hero extends Component {
         }}
         id="jumbo"
       >
-        {this.state.showMsg && (
-          <Popup handleClose={() => this.setState({ showMsg: false })}>
-            <PopupMsg />
-          </Popup>
-        )}
         <div class="jumbotron-cell">
           <div class="jumbotron-body">
             <div class="jumbotron-header">
@@ -211,8 +175,9 @@ class Hero extends Component {
                         text.os +
                         (text.arch ? ' (' + text.arch + ')' : '')
                       }
-                      href={'#'}
-                      onClick={this.showPopup.bind(this)}
+                      href={link}
+                      native
+                      rel="nofollow"
                     >
                       <i class={icon} /> Download
                       {showDetail && text.arch ? ' (' + text.arch + ')' : ''}
@@ -230,9 +195,9 @@ class Hero extends Component {
                       {buttons.map(({ link, icon, text }) => (
                         <a
                           class="dropdown-item"
+                          href={link}
                           native
-                          href={'#'}
-                          onClick={this.showPopup.bind(this)}
+                          rel="nofollow"
                         >
                           <i class={icon} /> Download for {text.os}{' '}
                           {text.arch ? ' (' + text.arch + ')' : ''}

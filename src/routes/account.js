@@ -11,15 +11,14 @@ import {
   changeAccount,
   getAccounts,
   getBossLog,
+  getLoot,
   getSelectedAccount,
   getSlayerTask,
   getTags,
-  getTileMarkers
+  getTileMarkers,
+  getGe
 } from '../modules/config'
-import { getGe } from '../modules/ge'
-import { getLoot } from '../modules/loot'
 import Home from './account/home'
-import GrandExchange from './account/grand-exchange'
 import LootTracker from './account/loot-tracker'
 import NotFound from '../components/not-found'
 import './account.scss'
@@ -29,6 +28,7 @@ import { getTimeTracking } from '../modules/time-tracking'
 import { upperToTitleCase } from '../util'
 import Delete from './account/delete'
 import Tiles from './account/tiles'
+import GrandExchange from './account/grand-exchange'
 
 const menu = [
   {
@@ -47,6 +47,7 @@ const menu = [
     label: 'Grand Exchange',
     icon: 'fa-fw fas fa-balance-scale',
     component: GrandExchange,
+    showAccounts: true,
     data: ({ rawGe }) =>
       rawGe.map(ge => ({
         buy: ge.buy,
@@ -61,15 +62,8 @@ const menu = [
     label: 'Loot Tracker',
     icon: 'fa-fw fas fa-file-invoice-dollar',
     component: LootTracker,
-    data: ({ rawLoot }) =>
-      rawLoot.map(entry => ({
-        eventId: entry.eventId,
-        type: entry.type,
-        drops: entry.drops.map(drop => ({
-          id: drop.id,
-          qty: drop.qty
-        }))
-      }))
+    showAccounts: true,
+    data: ({ rawLoot }) => rawLoot
   },
   {
     tag: 'time-tracking',
@@ -144,7 +138,7 @@ const menuExport = (currentMenu, props) => {
 }
 
 const accountType = type => {
-  if (type !== 'STANDARD') {
+  if (type && type !== 'STANDARD') {
     return <span class="badge badge-info">{upperToTitleCase(type)}</span>
   }
 

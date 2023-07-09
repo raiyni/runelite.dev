@@ -5,6 +5,7 @@ import { getLatestRelease } from './bootstrap'
 import { flattenMap } from '../util'
 import { getItems } from './item'
 import regions from '../_data/regions'
+import { getPrices } from './prices'
 
 const runeliteApi = api('https://api.runelite.net/')
 
@@ -14,7 +15,9 @@ export const {
   updateConfig,
   setConfig,
   changeAccount,
-  setTileMarkersFilter
+  setTileMarkersFilter,
+  setLootFilter,
+  setGeFilter
 } = createActions(
   {
     FETCH_CONFIG: () => async (dispatch, getState) => {
@@ -25,18 +28,12 @@ export const {
         return {}
       }
 
-      const result = await runeliteApi(`runelite-${version}/config`, {
+      const config = await runeliteApi(`runelite-${version}/config/v2`, {
         method: 'GET',
         headers: {
           'RUNELITE-AUTH': uuid
         }
       })
-
-      const config = {}
-      for (let i in result.config) {
-        const kv = result.config[i]
-        config[kv.key] = kv.value
-      }
 
       dispatch(setConfig(config))
       const state = getState()
@@ -60,21 +57,29 @@ export const {
         return {}
       }
 
-      config = {
-        config: Object.keys(config).map(key => ({
-          key: key,
-          value: config[key]
-        }))
+      const edit = {}
+      const unset = []
+      for (const [key, value] of Object.entries(config)) {
+        if (value !== null && value !== '') {
+          edit[key] = value
+        } else {
+          unset.push(key)
+        }
       }
 
-      await runeliteApi(`runelite-${version}/config`, {
+      const patch = {
+        edit,
+        unset
+      }
+
+      await runeliteApi(`runelite-${version}/config/v2`, {
         method: 'PATCH',
         headers: {
           'RUNELITE-AUTH': uuid,
           'content-type': 'application/json'
         },
         mode: 'cors',
-        body: config
+        body: patch
       })
 
       await dispatch(fetchConfig())
@@ -82,7 +87,9 @@ export const {
   },
   'SET_CONFIG',
   'CHANGE_ACCOUNT',
-  'SET_TILE_MARKERS_FILTER'
+  'SET_TILE_MARKERS_FILTER',
+  'SET_LOOT_FILTER',
+  'SET_GE_FILTER'
 )
 
 // Reducer
@@ -102,13 +109,29 @@ export default handleActions(
         ...state.filter,
         tileMarkers: payload
       }
+    }),
+    [setLootFilter]: (state, { payload }) => ({
+      ...state,
+      filter: {
+        ...state.filter,
+        loot: payload
+      }
+    }),
+    [setGeFilter]: (state, { payload }) => ({
+      ...state,
+      filter: {
+        ...state.filter,
+        ge: payload
+      }
     })
   },
   {
     config: {},
     selectedAccount: null,
     filter: {
-      tileMarkers: ''
+      tileMarkers: '',
+      loot: '',
+      ge: ''
     }
   }
 )
@@ -117,6 +140,8 @@ export default handleActions(
 export const getConfig = state => state.config.config
 export const getSelectedAccount = state => state.config.selectedAccount
 export const getTileMarkersFilter = state => state.config.filter.tileMarkers
+export const getLootFilter = state => state.config.filter.loot
+export const getGeFilter = state => state.config.filter.ge
 
 export const getAccounts = createSelector(getConfig, config => {
   const accounts = []
@@ -170,6 +195,87 @@ export const getSlayerTask = createSelector(
       points: config[prefix + 'points']
     }
   }
+)
+
+export const getLoot = createSelector(
+  getConfig,
+  getSelectedAccount,
+  getItems,
+  getPrices,
+  (config, selectedAccount, items, prices) => {
+    if (!selectedAccount) {
+      return []
+    }
+
+    const entries = []
+    const prefix =
+      'loottracker.rsprofile.' + selectedAccount.accountId + '.drops_'
+
+    for (let [key, value] of Object.entries(config)) {
+      if (!key.startsWith(prefix)) {
+        continue
+      }
+
+      value = JSON.parse(value)
+
+      if (!('name' in value)) {
+        continue
+      }
+
+      const entry = {
+        name: value['name'] || '',
+        count: parseInt(value['kills'] || ''),
+        type: value['type'] || '',
+        drops: []
+      }
+
+      entry.date = new Date(0)
+      entry.date.setUTCSeconds(parseFloat(value['last']))
+
+      if ('drops' in value) {
+        for (let i = 0; i < value['drops'].length; i += 2) {
+          const drop = {
+            id: parseInt(value['drops'][i]),
+            qty: parseInt(value['drops'][i + 1])
+          }
+
+          const item = items.find(item => item.id === drop.id)
+          drop.name = item && item.name ? item.name : 'null'
+          const note = drop.name && items.find(item => item.id === drop.id - 1)
+          const unnoted = note && note.name === drop.name && note.id
+
+          let price = prices[drop.id]
+          if (unnoted && (isNaN(price) || price <= 0)) {
+            price = prices[unnoted]
+          }
+
+          drop.price = (price || 0) * drop.qty
+          entry.drops.push(drop)
+        }
+      }
+
+      entry.price = entry.drops.reduce((acc, drop) => acc + drop.price, 0)
+      entries.push(entry)
+    }
+
+    return entries
+  }
+)
+
+export const getFilteredLoot = createSelector(
+  getLoot,
+  getLootFilter,
+  (data, filter) =>
+    data
+      .filter(
+        l =>
+          !filter ||
+          l.type.toLowerCase().indexOf(filter.toLowerCase()) !== -1 ||
+          l.drops.filter(
+            drop => drop.name.toLowerCase().indexOf(filter.toLowerCase()) !== -1
+          ).length >= 1
+      )
+      .sort((a, b) => b.date - a.date)
 )
 
 export const getBossLog = createSelector(
@@ -337,4 +443,54 @@ export const getProfileConfig = createSelector(
 
     return profileConfig
   }
+)
+
+export const getGe = createSelector(
+  getConfig,
+  getItems,
+  getSelectedAccount,
+  (config, items, selectedAccount) => {
+    if (!selectedAccount) {
+      return []
+    }
+
+    const entries = []
+    const key =
+      'grandexchange.rsprofile.' + selectedAccount.accountId + '.tradeHistory'
+
+    if (config[key]) {
+      const allData = JSON.parse(config[key])
+
+      for (const data of allData) {
+        const date = new Date(0)
+        date.setUTCSeconds(Math.floor(data['t'] / 1000))
+        const item = items.find(item => item.id === data['i'])
+        const entry = {
+          itemId: data['i'],
+          name: item && item.name ? item.name : 'null',
+          price: data['p'],
+          quantity: data['q'],
+          buy: data['b'],
+          time: data['t'],
+          date
+        }
+
+        entries.push(entry)
+      }
+    }
+
+    return entries
+  }
+)
+
+export const getFilteredGe = createSelector(
+  getGe,
+  getGeFilter,
+  (data, filter) =>
+    data
+      .filter(
+        l =>
+          !filter || l.name.toLowerCase().indexOf(filter.toLowerCase()) !== -1
+      )
+      .sort((a, b) => b.date - a.date)
 )
