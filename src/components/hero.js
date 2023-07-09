@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/anchor-is-valid */
 import { h, Component, Fragment } from 'preact'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
@@ -217,7 +218,7 @@ class Hero extends Component {
                         text.os +
                         (text.arch ? ' (' + text.arch + ')' : '')
                       }
-                      href={"#"}
+                      href={'#'}
                       onClick={this.showPopup.bind(this)}
                       native
                       rel="nofollow"
@@ -238,7 +239,7 @@ class Hero extends Component {
                       {buttons.map(({ link, icon, text }) => (
                         <a
                           class="dropdown-item"
-                          href={"#"}
+                          href={'#'}
                           onClick={this.showPopup.bind(this)}
                           native
                           rel="nofollow"
