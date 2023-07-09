@@ -27,7 +27,7 @@ export const {
     FETCH_EXTERNAL_PLUGINS: () => async (dispatch, getState) => {
       const version = getLatestRelease(getState())
       const response = await pluginHubApi(
-        `${version}/manifest.js`,
+        `manifest/${version}_full.js`,
         { method: 'GET' },
         true
       )
@@ -40,12 +40,17 @@ export const {
       )
 
       const pluginManifest = JSON.parse(jsonStr)
-      const plugins = pluginManifest.map(p => {
-        if (p.hasIcon) {
-          p.imageUrl = `${pluginHubUrl}${version}/${p.internalName}/${p.commit}.png`
+      const pluginDisplay = pluginManifest.display
+      const pluginJars = pluginManifest.jars
+      const plugins = pluginDisplay.map(p => {
+        if (p.iconHash) {
+          p.imageUrl = `${pluginHubUrl}icon/${p.internalName}_${p.iconHash}.png`
         }
-
+        p.working = !!pluginJars.find(j => j.internalName === p.internalName)
         p.description = p.description
+          .replace(/<br\/?>/g, '\n')
+          .replace(/<[^>]+>/g, '')
+        p.unavailableReason = (p.unavailableReason || '')
           .replace(/<br\/?>/g, '\n')
           .replace(/<[^>]+>/g, '')
         return p
@@ -108,9 +113,20 @@ export const {
         )
         // Fix relative URLs for asset links
         .replace(
-          /<a(.*) href\s*=\s*"((?!http)[^"]+)"([^>]*)>/g,
+          /<a(.*) href\s*=\s*"((?!http)(?!#)[^"]+)"([^>]*)>/g,
           `<a$1 href="https://raw.githubusercontent.com/${user}/${repo}/${commit}/$2"$3>`
         )
+        // Fix links to elements
+        .replace(/<a(.*) href\s*=\s*"#([^"]+)"([^>]*)>/g, function (
+          match,
+          p1,
+          p2,
+          p3,
+          offset,
+          string
+        ) {
+          return `<a${p1} href="#user-content-${p2.toLowerCase()}"${p3}>`
+        })
         // Replace GIFs with links to GIFs
         .replace(
           /<img src\s*=\s*"((?:[^"]+\/)?([^"]+\.gif))"([^>]*)>/g,
@@ -234,9 +250,11 @@ export const getSortedExternalPlugins = createSelector(
   getPluginSorting,
   getFilteredExternalPlugins,
   (pluginSorting, externalPlugins) => {
-    externalPlugins = externalPlugins.sort((a, b) =>
-      a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
-    )
+    externalPlugins = externalPlugins
+      .sort((a, b) =>
+        a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
+      )
+      .sort((a, b) => b.working - a.working)
 
     switch (pluginSorting) {
       case 'active installs':

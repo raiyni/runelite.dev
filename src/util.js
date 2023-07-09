@@ -41,7 +41,8 @@ export const flattenMap = map => {
 // Convert number to MM:SS representation
 export const toMMSS = s => {
   const minutes = Math.floor(s / 60)
-  const seconds = s % 60
+  // Weird arithmetic is needed here to prevent rounding errors due to JS's floating point math
+  const seconds = Math.round((s % 60) * 10) / 10
   const minutesStr = String(minutes).padStart(2, '0')
   const secondsStr = String(seconds).padStart(2, '0')
   return minutesStr + ':' + secondsStr
@@ -78,4 +79,48 @@ export const upperToTitleCase = string => {
   }
 
   return sentence.join(' ')
+}
+
+export const bytesToHexString = bytes => {
+  if (!bytes) return null
+
+  const uint = new Uint8Array(bytes)
+  const hexBytes = []
+  for (let i = 0; i < uint.length; ++i) {
+    let byteString = uint[i].toString(16)
+
+    if (byteString.length < 2) byteString = '0' + byteString
+
+    hexBytes.push(byteString)
+  }
+
+  return hexBytes.join('')
+}
+
+export const digest = (data, callback) => {
+  const isIE11 = !!window.MSInputMethodContext && !!document.documentMode
+
+  if (isIE11) {
+    window.msCrypto.subtle.digest(
+      {
+        name: 'SHA-256'
+      },
+      data
+    ).oncomplete = e => {
+      const sha256 = bytesToHexString(e.target.result)
+      callback(sha256)
+    }
+  } else {
+    window.crypto.subtle
+      .digest(
+        {
+          name: 'SHA-256'
+        },
+        data
+      )
+      .then(hash => {
+        const sha256 = bytesToHexString(hash)
+        callback(sha256)
+      })
+  }
 }

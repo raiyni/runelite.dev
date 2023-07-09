@@ -2,7 +2,8 @@ const {
   override,
   addWebpackAlias,
   useBabelRc,
-  useEslintRc
+  useEslintRc,
+  babelInclude
 } = require('customize-cra')
 
 const fs = require('fs')
@@ -83,7 +84,15 @@ const addSitePlugins = () => config => {
   }
 
   const posts = fs.readdirSync(path.join('src', '_posts'))
-  const routes = ['/', '/features', '/blog', '/tag', '/tile', '/plugin-hub']
+  const routes = [
+    '/',
+    '/features',
+    '/blog',
+    '/tag',
+    '/tile',
+    '/plugin-hub',
+    '/verify'
+  ]
     .map(path => ({ path }))
     .concat(
       posts.map(fileName => {
@@ -163,5 +172,10 @@ module.exports = override(
     react: 'preact/compat',
     'react-dom': 'preact/compat'
   }),
-  addSitePlugins()
+  addSitePlugins(),
+  babelInclude([
+    path.resolve(__dirname, 'src'),
+    path.resolve(__dirname, 'node_modules/react-leaflet'),
+    path.resolve(__dirname, 'node_modules/@react-leaflet')
+  ])
 )
