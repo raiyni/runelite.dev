@@ -5,6 +5,7 @@
 @import '_variables.scss';
 @import '~bootstrap/scss/bootstrap';
 @import '~lato-font/scss/_public-api';
+@import '~@fortawesome/fontawesome-free/css/all.min.css';
 
 @font-face {
   font-family: Lato;
@@ -52,6 +53,10 @@ video {
   z-index: 9999;
   max-height: 300px;
   overflow-y: auto;
+}
+
+.dropdown {
+  display: flex;
 }
 
 .dropdown:hover .dropdown-menu {
